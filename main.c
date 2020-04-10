@@ -3,6 +3,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#include "nfa.h"
+
 #define VERSION "0.1"
 #define DPRINTF(ARGS) if(debug==1) printf ARGS;
 
@@ -34,6 +36,7 @@ int main(int argc, char* argv[]){
 				break;
 			case 'e':
 				DPRINTF(("Expression: %s\n", optarg));
+				printpost(re2post(optarg));
 				break;
 			case 'd':
 				debug = 1;
