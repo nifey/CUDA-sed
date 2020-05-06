@@ -36,7 +36,9 @@ int main(int argc, char* argv[]){
 				break;
 			case 'e':
 				DPRINTF(("Expression: %s\n", optarg));
-				printpost(re2post(optarg));
+				atom** atoms = re2post(optarg);
+				if(debug==1) printpost(atoms);
+				post2nfa(atoms);
 				break;
 			case 'd':
 				debug = 1;
