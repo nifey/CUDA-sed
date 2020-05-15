@@ -539,7 +539,6 @@ NFA* post2nfa(atom** buffer){
 		printf("Error converting to NFA\n");
 		return NULL;
 	}
-	printDot(*top, "FinalNFA.dot");
 	return *top;
 }
 

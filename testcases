@@ -1,0 +1,9 @@
+s/hello/WORLD/
+s/hello/WORLD/g
+s/\(hello\)\+/WORLD/g
+s/hello/WORLD/g;s/WORLDworld/newworld/g
+s/a.b/GG/g
+s/a.*b/GG/g
+s/m.*/GG/g
+s/.*m/GG/g
+s/.*/Blue/g

@@ -29,6 +29,7 @@ NFA* post2nfa(atom**);
 NFAset* NFA2NFAset(NFA**, int, int*);
 void printpost(atom**);
 void printNFAset(NFAset*, char*);
+void printDot(NFA*, char*);
 void make_nfa_transition(int*, char, int, int*, int*);
 int check_for_final_state(int, int*, int);
 void add_to_next_states(int*, int, int*, int*);
