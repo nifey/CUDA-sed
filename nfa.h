@@ -3,6 +3,11 @@
 #define MAX_PARENS 100
 #define MAX_CURRENT_STATES 50
 
+#define MAX_EXPR 10
+#define MAX_LINE_LENGTH 100
+#define NUM_BLOCKS 2
+#define THREADS_PER_BLOCK 1024
+
 #define MATCH_ANY 256
 #define SPLIT_STATE 257
 
@@ -30,6 +35,6 @@ NFAset* NFA2NFAset(NFA**, int, int*);
 void printpost(atom**);
 void printNFAset(NFAset*, char*);
 void printDot(NFA*, char*);
-void make_nfa_transition(int*, char, int, int*, int*);
+__host__ __device__ void make_nfa_transition(int*, char, int, int*, int*);
 int check_for_final_state(int, int*, int);
-void add_to_next_states(int*, int, int*, int*);
+__host__ __device__ void add_to_next_states(int*, int, int*, int*);

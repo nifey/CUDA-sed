@@ -542,62 +542,6 @@ NFA* post2nfa(atom** buffer){
 	return *top;
 }
 
-void add_to_next_states(int* nfadata, int state, int* next_states, int* n_next_states){
-	int split_index, split_len = 0;
-	int n_char_entry = (nfadata[3] - 2)/3;
-	for(int i=0; i<n_char_entry; i++){
-		if(nfadata[2+ i*3 + 0] == SPLIT_STATE){
-			split_index = nfadata[2+ i*3 + 1];
-			split_len = nfadata[2+ i*3 + 2];
-		}
-	}
-	int split_states[2], flag = 0;
-	for(int i=0; i<split_len; i++){
-		if(nfadata[split_index + i*2 + 0] == state){
-			split_states[flag++] = nfadata[split_index + i*2 + 1];
-		}
-		if(flag==2)
-			break;
-	}
-	if(flag == 0){
-		split_states[flag++] = state;
-	}
-	for(int k = 0; k < flag; k++){
-		for(int i = 0; i< *n_next_states; i++){
-			if(next_states[i] == split_states[k])
-				return;
-		}
-		next_states[*n_next_states] = split_states[k];
-		*n_next_states = *n_next_states + 1;
-	}
-}
-
-void make_nfa_transition(int* nfadata, char character, int state, int* next_states, int* n_next_states){
-	int n_char_entry = (nfadata[3] - 2)/3;
-	int any_index, any_len = 0;
-	for(int i=0; i<n_char_entry; i++){
-		if (nfadata[2+ i*3 + 0] == MATCH_ANY){
-			any_index = nfadata[2 + i*3 + 1];
-			any_len = nfadata[2 + i*3 + 2];
-		}
-	}
-	for(int i=0; i<any_len; i++){
-		if(nfadata[any_index + i*2 + 0] == state){
-			add_to_next_states(nfadata, nfadata[any_index + i*2 + 1], next_states, n_next_states);
-		}
-	}
-	for(int i=0; i<n_char_entry; i++){
-		if(nfadata[2+ i*3 + 0] == (int) character){
-			for(int j=0; j<nfadata[2+i*3 + 2]; j++){
-				if(nfadata[nfadata[2 + i*3 + 1] + j*2 + 0] == state){
-					add_to_next_states(nfadata, nfadata[nfadata[2 + i*3 + 1] + j*2 + 1], next_states, n_next_states);
-				}
-			}
-			break;
-		}
-	}
-}
-
 int check_for_final_state(int final_state, int* next_states, int n_next_states){
 	for(int i=0; i<n_next_states; i++){
 		if(next_states[i] == final_state){

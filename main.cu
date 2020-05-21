@@ -9,10 +9,8 @@
 #include <sys/mman.h>
 
 #include "nfa.h"
+#include "kernels.h"
 
-#define MAX_EXPR 10
-#define MAX_LINE_LENGTH 100
-#define NUM_BLOCKS 3
 #define VERSION "0.1"
 #define DPRINTF(ARGS) if(debug==1) printf ARGS;
 
@@ -73,6 +71,7 @@ NFAset* process_expression(char* expr, char** replacement_strings){
 		memcpy(*replacement_strings + index, replacement[expr_id], strlen(replacement[expr_id]));
 		index += strlen(replacement[expr_id]);
 	}
+  *(*replacement_strings + index) = '\0';
 	return NFA2NFAset(nfas, count, metadata);
 }
 
@@ -124,13 +123,7 @@ int main(int argc, char* argv[]){
 	if(debug==1){
 		printNFAset(nfaset, replacement_strings);
 	}
-	// Copy NFAset and replacement string to GPU
-	// Open the File and split based on newline character
-	// Copy lines to GPU
-	// Process the lines
-	// Copy processed lines back to host
-	// Print processed lines
-	
+
 	struct stat sb;
 	int fd = open(filename, O_RDONLY);
 	if(fstat(fd, &sb) == -1){ 
@@ -138,13 +131,85 @@ int main(int argc, char* argv[]){
 		exit(0);
 	}
 
-	char* input_buffer = mmap(NULL, sb.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
+	char* input_buffer = (char*) mmap(NULL, sb.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
 	if(input_buffer == MAP_FAILED){
 		printf("Cannot MMap the input file\n");
 		exit(0);
 	}
 
-	char* buffer_pointer = input_buffer;
+  char* buffer_pointer = input_buffer;
+	char* start_pointer = input_buffer;
+  if(true){
+	// Copy NFAset and replacement string to GPU
+  int *dnfaset = copyNfasetToGPU(nfaset);
+  char *dreplacement_strings = copyReplacementStringsToGPU(replacement_strings);
+
+  int lastnewline = 1, num_lines;
+  while(buffer_pointer < input_buffer + sb.st_size){
+      // Open the File and split based on newline character
+    int *linestart = (int*) malloc (sizeof(int)*NUM_BLOCKS*THREADS_PER_BLOCK);
+    int *linelen = (int*) malloc (sizeof(int)*NUM_BLOCKS*THREADS_PER_BLOCK);
+		start_pointer = buffer_pointer;
+    int blockdatalen[NUM_BLOCKS], oldblockno=0, sumblocklen = 0;
+    for(int i=0; i<NUM_BLOCKS; i++){
+        blockdatalen[i] = 0;
+    }
+		num_lines = -1;
+    for(int line_no=0; line_no<NUM_BLOCKS*THREADS_PER_BLOCK; line_no++){
+      if(buffer_pointer >= input_buffer + sb.st_size){
+          linestart[line_no] = -1;
+          linelen[line_no] = 0;
+      } else {
+          int line_size = 0;
+          int block_no = (int)(line_no/THREADS_PER_BLOCK);
+					if(oldblockno != block_no){
+							sumblocklen+=blockdatalen[oldblockno];
+							oldblockno = block_no;
+					}
+          if(block_no != 0){
+              linestart[line_no] = block_no*THREADS_PER_BLOCK*MAX_LINE_LENGTH  + (buffer_pointer - start_pointer) - sumblocklen;
+          } else {
+              linestart[line_no] = block_no*THREADS_PER_BLOCK*MAX_LINE_LENGTH  + (buffer_pointer - start_pointer);
+          }
+          while(buffer_pointer < input_buffer + sb.st_size && *buffer_pointer != '\n'){
+              buffer_pointer++;
+              line_size++;
+          }
+          if(buffer_pointer < input_buffer + sb.st_size){
+              blockdatalen[block_no] += line_size + 1;
+          } else {
+              blockdatalen[block_no] += line_size;
+							lastnewline = 0;
+          }
+          linelen[line_no] = line_size;
+          buffer_pointer++;
+					if(buffer_pointer >= input_buffer + sb.st_size){
+							num_lines = line_no + 1;
+					}
+      }
+    }
+		if(num_lines == -1){
+				num_lines = NUM_BLOCKS*THREADS_PER_BLOCK;
+		}
+    
+	// Copy lines to GPU
+    int *dlinestart, *dlinelen;
+    char *dbuffer;
+    copyLinesToGPU(linestart, linelen, start_pointer, blockdatalen, &dlinestart, &dlinelen, &dbuffer);
+		start_pointer = buffer_pointer;
+		free(linestart);
+		free(linelen);
+
+	// Process the lines
+    processLines<<<NUM_BLOCKS,THREADS_PER_BLOCK>>>(dnfaset, nfaset->n_nfa, dreplacement_strings, dlinestart, dlinelen, dbuffer);
+    cudaDeviceSynchronize();
+
+	// Copy processed lines back to host and print the lines
+    copyLinesBackAndPrint(dbuffer, num_lines, lastnewline);
+
+  }
+
+  } else {
 	char* old_buffer_pointer;
 	while(buffer_pointer < input_buffer + sb.st_size){
 		char *line, *new_line;
@@ -153,7 +218,7 @@ int main(int argc, char* argv[]){
 
 		int line_size = 0;
 		old_buffer_pointer = buffer_pointer;
-		while(*buffer_pointer != '\n'){
+		while(buffer_pointer < input_buffer + sb.st_size && *buffer_pointer != '\n'){
 			buffer_pointer++;
 			line_size++;
 		}
@@ -161,7 +226,6 @@ int main(int argc, char* argv[]){
 		memcpy(line, old_buffer_pointer, sizeof(char)*line_size);
 
 		int current_start;
-		//int line_length = strlen(line);
 		int line_length = line_size;
 		int new_line_length;
 		for(int nfa_id = 0; nfa_id < nfaset->n_nfa; nfa_id++){
@@ -226,6 +290,7 @@ int main(int argc, char* argv[]){
 		printf("\n");
 
 	}
+  }
 
 	munmap(input_buffer, sb.st_size);
 }
