@@ -76,16 +76,19 @@ NFAset* process_expression(char* expr, char** replacement_strings){
 }
 
 int main(int argc, char* argv[]){
-	char* shortopts = "hvdf:e:";
+	char* shortopts = "hvcdf:e:b:";
 	static const struct option longopts[] = {
 		{"file", 1, NULL, 'f'},
 		{"expression", 1, NULL, 'e'},
 		{"debug", 0, NULL, 'd'},
 		{"help", 0, NULL, 'h'},
 		{"version", 0, NULL, 'v'},
+		{"cpu", 0, NULL, 'c'},
+		{"blocks", 0, NULL, 'b'},
 		{NULL, 0, NULL, 0},
 	};
 	int opt;
+	int cpu = 0, blocks = NUM_BLOCKS; 
 	char *expression = NULL, *replacement_strings, *filename = NULL;
 	while((opt = getopt_long(argc, argv, shortopts, longopts, NULL))!=EOF){
 		switch (opt) {
@@ -108,6 +111,12 @@ int main(int argc, char* argv[]){
 			case 'v':
 				print_version();
 				exit(0);
+				break;
+			case 'c':
+				cpu = 1;
+				break;
+			case 'b':
+				blocks = atoi(optarg);
 				break;
 			default:
 				break;
@@ -139,7 +148,7 @@ int main(int argc, char* argv[]){
 
   char* buffer_pointer = input_buffer;
 	char* start_pointer = input_buffer;
-  if(true){
+  if(cpu==0){
 	// Copy NFAset and replacement string to GPU
   int *dnfaset = copyNfasetToGPU(nfaset);
   char *dreplacement_strings = copyReplacementStringsToGPU(replacement_strings);
@@ -201,7 +210,9 @@ int main(int argc, char* argv[]){
 		free(linelen);
 
 	// Process the lines
-    processLines<<<NUM_BLOCKS,THREADS_PER_BLOCK>>>(dnfaset, nfaset->n_nfa, dreplacement_strings, dlinestart, dlinelen, dbuffer);
+    int size = (nfaset->nfadata[(nfaset->n_nfa-1)*5+0] + nfaset->nfadata[(nfaset->n_nfa-1)*5+1]) * sizeof(int) + ((strlen(replacement_strings) * sizeof(char))/sizeof(int) + 1)*sizeof(int);
+    processLines<<<blocks,THREADS_PER_BLOCK, size>>>(dnfaset, nfaset->nfadata[(nfaset->n_nfa-1)*5+0] + nfaset->nfadata[(nfaset->n_nfa-1)*5+1], nfaset->n_nfa, dreplacement_strings,
+		                                                 strlen(replacement_strings), dlinestart, dlinelen, dbuffer);
     cudaDeviceSynchronize();
 
 	// Copy processed lines back to host and print the lines

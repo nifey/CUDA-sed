@@ -113,8 +113,23 @@ __host__ __device__ void make_nfa_transition(int* nfadata, char character, int s
 	}
 }
 
-__global__ void processLines(int* nfaset,int n_nfa, char* replacement_strings,int* dlinestart,int* dlinelen,char* dbuffer){
+__global__ void processLines(int* nfaset,int nfaset_length, int n_nfa, char* replacement_strings,int replacement_strings_length, int* dlinestart,int* dlinelen,char* dbuffer){
     int id = blockIdx.x * blockDim.x + threadIdx.x;
+
+    extern __shared__ int nfasetdata[];
+    char *replacement_strings_data = (char*) (nfasetdata + nfaset_length) ;
+    if(id%blockDim.x == 0){
+	    for(int i=0; i < nfaset_length; i++){
+		    nfasetdata[i] = nfaset[i];
+	    }
+    }
+    if(id%blockDim.x == 32){
+	    for(int i=0; i < replacement_strings_length; i++){
+		    replacement_strings_data[i] = replacement_strings[i];
+	    }
+    }
+    __syncthreads();
+
     char *line, *new_line;
     line = (char*) malloc (sizeof(char)*MAX_LINE_LENGTH);
     new_line = (char*) malloc (sizeof(char)*MAX_LINE_LENGTH);
@@ -130,10 +145,10 @@ __global__ void processLines(int* nfaset,int n_nfa, char* replacement_strings,in
 		for(int nfa_id = 0; nfa_id < n_nfa; nfa_id++){
 			current_start = 0;
 			new_line_length = 0;
-			int* nfadata = nfaset + nfaset[nfa_id*5 + 0];
-			int is_global = nfaset[nfa_id*5 + 2];
-			char* replacement_string = replacement_strings + nfaset[nfa_id*5 + 3];
-			int replacement_length = nfaset[nfa_id*5 + 4];
+			int* nfadata = nfasetdata+ nfasetdata[nfa_id*5 + 0];
+			int is_global = nfasetdata[nfa_id*5 + 2];
+			char* replacement_string = replacement_strings_data+ nfasetdata[nfa_id*5 + 3];
+			int replacement_length = nfasetdata[nfa_id*5 + 4];
 			int match_len, last_final_state;
 			do{
 				n_current_states = 0;

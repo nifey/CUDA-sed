@@ -4,7 +4,7 @@
 #define MAX_CURRENT_STATES 50
 
 #define MAX_EXPR 10
-#define MAX_LINE_LENGTH 100
+#define MAX_LINE_LENGTH 150
 #define NUM_BLOCKS 2
 #define THREADS_PER_BLOCK 1024
 
