@@ -215,7 +215,7 @@ void printpost(atom** buffer){
 	}
 	atom** a = buffer;
 	atom* current;
-	
+
 	while(*a != NULL){
 		current = *a;
 		if(current->special){
@@ -415,8 +415,8 @@ int sort_transitions(int* transitions, int n_transitions){
 		data[2] = transitions[i*3 + 2];
 		while(j>=0 &&
 				(data[0] < transitions[j*3 + 0]  ||
-				(data[0] == transitions[j*3 + 0] && data[1] < transitions[j*3 + 1]))
-				){
+				 (data[0] == transitions[j*3 + 0] && data[1] < transitions[j*3 + 1]))
+		     ){
 			transitions[(j+1)*3 + 0] = transitions[j*3 + 0];
 			transitions[(j+1)*3 + 1] = transitions[j*3 + 1];
 			transitions[(j+1)*3 + 2] = transitions[j*3 + 2];
