@@ -18,23 +18,23 @@ char* copyReplacementStringsToGPU(char* strings){
     return dstrings;
 }
 
-void copyLinesToGPU(int* linestart,int* linelen, char* input_buffer, int* blockdatalen, int** dlinestart, int** dlinelen, char** dbuffer){
-  cudaMalloc(dlinestart, sizeof(int)*NUM_BLOCKS*THREADS_PER_BLOCK);
-  cudaMemcpy(*dlinestart, linestart, sizeof(int)*NUM_BLOCKS*THREADS_PER_BLOCK, cudaMemcpyHostToDevice);
-  cudaMalloc(dlinelen, sizeof(int)*NUM_BLOCKS*THREADS_PER_BLOCK);
-  cudaMemcpy(*dlinelen, linelen, sizeof(int)*NUM_BLOCKS*THREADS_PER_BLOCK, cudaMemcpyHostToDevice);
+void copyLinesToGPU(int* linestart,int* linelen, char* input_buffer, int* blockdatalen, int** dlinestart, int** dlinelen, char** dbuffer, int blocks){
+  cudaMalloc(dlinestart, sizeof(int)*blocks*THREADS_PER_BLOCK);
+  cudaMemcpy(*dlinestart, linestart, sizeof(int)*blocks*THREADS_PER_BLOCK, cudaMemcpyHostToDevice);
+  cudaMalloc(dlinelen, sizeof(int)*blocks*THREADS_PER_BLOCK);
+  cudaMemcpy(*dlinelen, linelen, sizeof(int)*blocks*THREADS_PER_BLOCK, cudaMemcpyHostToDevice);
 
-  cudaMalloc(dbuffer, sizeof(char)*NUM_BLOCKS*THREADS_PER_BLOCK*MAX_LINE_LENGTH);
+  cudaMalloc(dbuffer, sizeof(char)*blocks*THREADS_PER_BLOCK*MAX_LINE_LENGTH);
   char *current = input_buffer;
-  for(int i=0; i<NUM_BLOCKS; i++){
+  for(int i=0; i<blocks; i++){
     cudaMemcpy(*dbuffer + (i* MAX_LINE_LENGTH * THREADS_PER_BLOCK), current, sizeof(char) * blockdatalen[i], cudaMemcpyHostToDevice);
     current += blockdatalen[i];
   }
 }
 
-void copyLinesBackAndPrint(char* dbuffer, int num_lines, int lastnewline){
-  char* buffer = (char* ) malloc (sizeof(char)*NUM_BLOCKS*THREADS_PER_BLOCK*MAX_LINE_LENGTH);
-  cudaMemcpy(buffer, dbuffer, sizeof(char)*NUM_BLOCKS*THREADS_PER_BLOCK*MAX_LINE_LENGTH, cudaMemcpyDeviceToHost);
+void copyLinesBackAndPrint(char* dbuffer, int num_lines, int lastnewline, int blocks){
+  char* buffer = (char* ) malloc (sizeof(char)*blocks*THREADS_PER_BLOCK*MAX_LINE_LENGTH);
+  cudaMemcpy(buffer, dbuffer, sizeof(char)*blocks*THREADS_PER_BLOCK*MAX_LINE_LENGTH, cudaMemcpyDeviceToHost);
 	int i;
   for(i=0; i<num_lines-1; i++){
     if(strlen(buffer+i*MAX_LINE_LENGTH) != 0){

@@ -156,15 +156,15 @@ int main(int argc, char* argv[]){
   int lastnewline = 1, num_lines;
   while(buffer_pointer < input_buffer + sb.st_size){
       // Open the File and split based on newline character
-    int *linestart = (int*) malloc (sizeof(int)*NUM_BLOCKS*THREADS_PER_BLOCK);
-    int *linelen = (int*) malloc (sizeof(int)*NUM_BLOCKS*THREADS_PER_BLOCK);
+    int *linestart = (int*) malloc (sizeof(int)*blocks*THREADS_PER_BLOCK);
+    int *linelen = (int*) malloc (sizeof(int)*blocks*THREADS_PER_BLOCK);
 		start_pointer = buffer_pointer;
-    int blockdatalen[NUM_BLOCKS], oldblockno=0, sumblocklen = 0;
-    for(int i=0; i<NUM_BLOCKS; i++){
+    int blockdatalen[blocks], oldblockno=0, sumblocklen = 0;
+    for(int i=0; i<blocks; i++){
         blockdatalen[i] = 0;
     }
 		num_lines = -1;
-    for(int line_no=0; line_no<NUM_BLOCKS*THREADS_PER_BLOCK; line_no++){
+    for(int line_no=0; line_no<blocks*THREADS_PER_BLOCK; line_no++){
       if(buffer_pointer >= input_buffer + sb.st_size){
           linestart[line_no] = -1;
           linelen[line_no] = 0;
@@ -198,25 +198,24 @@ int main(int argc, char* argv[]){
       }
     }
 		if(num_lines == -1){
-				num_lines = NUM_BLOCKS*THREADS_PER_BLOCK;
+				num_lines = blocks*THREADS_PER_BLOCK;
 		}
     
 	// Copy lines to GPU
     int *dlinestart, *dlinelen;
     char *dbuffer;
-    copyLinesToGPU(linestart, linelen, start_pointer, blockdatalen, &dlinestart, &dlinelen, &dbuffer);
+    copyLinesToGPU(linestart, linelen, start_pointer, blockdatalen, &dlinestart, &dlinelen, &dbuffer, blocks);
 		start_pointer = buffer_pointer;
 		free(linestart);
 		free(linelen);
 
 	// Process the lines
     int size = (nfaset->nfadata[(nfaset->n_nfa-1)*5+0] + nfaset->nfadata[(nfaset->n_nfa-1)*5+1]) * sizeof(int) + ((strlen(replacement_strings) * sizeof(char))/sizeof(int) + 1)*sizeof(int);
-    processLines<<<blocks,THREADS_PER_BLOCK, size>>>(dnfaset, nfaset->nfadata[(nfaset->n_nfa-1)*5+0] + nfaset->nfadata[(nfaset->n_nfa-1)*5+1], nfaset->n_nfa, dreplacement_strings,
-		                                                 strlen(replacement_strings), dlinestart, dlinelen, dbuffer);
+    processLines<<<blocks,THREADS_PER_BLOCK, size>>>(dnfaset, nfaset->nfadata[(nfaset->n_nfa-1)*5+0] + nfaset->nfadata[(nfaset->n_nfa-1)*5+1], nfaset->n_nfa, dreplacement_strings,strlen(replacement_strings), dlinestart, dlinelen, dbuffer);
     cudaDeviceSynchronize();
 
 	// Copy processed lines back to host and print the lines
-    copyLinesBackAndPrint(dbuffer, num_lines, lastnewline);
+    copyLinesBackAndPrint(dbuffer, num_lines, lastnewline, blocks);
 
   }
 
