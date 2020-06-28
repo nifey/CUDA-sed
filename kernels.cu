@@ -130,17 +130,14 @@ __global__ void processLines(int* nfaset,int nfaset_length, int n_nfa, char* rep
 	}
 	__syncthreads();
 
-	char *line, *new_line;
-	line = (char*) malloc (sizeof(char)*MAX_LINE_LENGTH);
-	new_line = (char*) malloc (sizeof(char)*MAX_LINE_LENGTH);
-	int *current_states, *next_states, n_current_states, n_next_states;
-	current_states = (int*) malloc (sizeof(int)*MAX_CURRENT_STATES);
-	next_states = (int*)  malloc (sizeof(int)*MAX_CURRENT_STATES);
+	char lines[2][MAX_LINE_LENGTH], line_length, new_line_length;
+	line_length = dlinelen[id];
+	int states[2][MAX_CURRENT_STATES], n_current_states, n_next_states;
+	int current_lines_buffer= 0 , current_states_buffer = 0 ;
 	int current_start;
-	int line_length = dlinelen[id];
-	int new_line_length;
+
 	for(int i=0; i<line_length; i++){
-		line[i] = dbuffer[dlinestart[id] + i];
+		lines[current_lines_buffer][i] = dbuffer[dlinestart[id] + i];
 	}
 	for(int nfa_id = 0; nfa_id < n_nfa; nfa_id++){
 		current_start = 0;
@@ -155,26 +152,24 @@ __global__ void processLines(int* nfaset,int nfaset_length, int n_nfa, char* rep
 			n_next_states = 0;
 			match_len = 0;
 			last_final_state = -1;
-			add_to_next_states(nfadata, nfadata[0], current_states, &n_current_states);
+			add_to_next_states(nfadata, nfadata[0], states[current_states_buffer], &n_current_states);
 			for(int i=0; i<n_current_states; i++){
-				if(current_states[i] == nfadata[1]){
+				if(states[current_states_buffer][i] == nfadata[1]){
 					last_final_state = match_len;
 					break;
 				}
 			}
 			while(n_current_states != 0 && (current_start + match_len < line_length)){
 				for(int state_id = 0; state_id < n_current_states; state_id++){
-					make_nfa_transition(nfadata, line[current_start + match_len], current_states[state_id], next_states, &n_next_states);
+					make_nfa_transition(nfadata, lines[current_lines_buffer][current_start + match_len], states[current_states_buffer][state_id], states[1-current_states_buffer], &n_next_states);
 				}
 				for(int i=0; i<n_next_states; i++){
-					if(next_states[i] == nfadata[1]){
+					if(states[1-current_states_buffer][i] == nfadata[1]){
 						last_final_state = match_len;
 						break;
 					}
 				}
-				int* temp = next_states;
-				next_states = current_states;
-				current_states = temp;
+				current_states_buffer = 1 - current_states_buffer;
 				n_current_states = n_next_states;
 				n_next_states = 0;
 				match_len++;
@@ -182,33 +177,27 @@ __global__ void processLines(int* nfaset,int nfaset_length, int n_nfa, char* rep
 			if(last_final_state != -1){
 				current_start += last_final_state + 1;
 				for(int i = 0; i < replacement_length; i++){
-					new_line[new_line_length++] = replacement_string[i];
+					lines[1-current_lines_buffer][new_line_length++] = replacement_string[i];
 				}
 				if(is_global == 0) {
 					while(current_start < line_length){
-						new_line[new_line_length++] = line[current_start++];
+						lines[1-current_lines_buffer][new_line_length++] = lines[current_lines_buffer][current_start++];
 					}
 					break;
 				}
 			} else if(current_start < line_length) {
-				new_line[new_line_length++] = line[current_start];
+				lines[1-current_lines_buffer][new_line_length++] = lines[current_lines_buffer][current_start];
 				current_start++;
 			}
 		} while (current_start < line_length);
-		char* temp = line;
-		line = new_line;
-		new_line = temp;
+		current_lines_buffer = 1 - current_lines_buffer;
 		line_length = new_line_length;
 		new_line_length = 0;
 	}
 	__syncthreads();
 	int i;
 	for(i=0; i<line_length; i++){
-		dbuffer[MAX_LINE_LENGTH*id + i] = line[i];
+		dbuffer[MAX_LINE_LENGTH*id + i] = lines[current_lines_buffer][i];
 	}
 	dbuffer[MAX_LINE_LENGTH*id + i] = '\0';
-	free(line);
-	free(new_line);
-	free(current_states);
-	free(next_states);
 }
