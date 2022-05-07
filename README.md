@@ -24,3 +24,13 @@ To compile run:
 nvcc main.cu kernels.cu nfa.cu -o sed
 ./sed -e 's/hello/world/g' -f filename
 ```
+
+To view the generated NFA as a dot graph:
+```bash
+# Run it with -d flag
+nvcc main.cu kernels.cu nfa.cu -o sed
+./sed -d -e 's/hello/world/g' -f filename
+# The dot file produced will be named as nfa*.dot
+dot -Tpdf nfa0.dot > nfa0.pdf
+# Now open nfa0.pdf in your pdf viewer
+```
